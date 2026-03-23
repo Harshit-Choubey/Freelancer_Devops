@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  email          String   @unique
+  password       String
+  firstName      String
+  lastName       String
+  role           UserRole
+  bio            String?
+  skills         String[] // Array of strings for skills
+  profilePicture String?
+  phone          String?
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  jobs           Job[]
+  applications   JobApplication[]
+  sentMessages   Message[] @relation("MessageSender")
+  resetTokens    PasswordResetToken[]
+  otpTokens      OTPToken[]
+  
+  @@map("users")
+}
+
+model Job {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  description    String
+  budget         Float
+  requiredSkills String[]  // Array of required skills
+  category       String
+  status         JobStatus @default(OPEN)
+  clientId       String    @db.ObjectId
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  client         User      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  applications   JobApplication[]
+  messages       Message[]
+  
+  @@map("jobs")
+}
+
+model JobApplication {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  jobId        String            @db.ObjectId
+  freelancerId String            @db.ObjectId
+  coverLetter  String
+  bidAmount    Float
+  status       ApplicationStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+  
+  job          Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  freelancer   User              @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  
+  @@unique([jobId, freelancerId])
+  @@map("job_applications")
+}
+
+model Message {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  jobId     String   @db.ObjectId
+  senderId  String   @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sender    User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("password_reset_tokens")
+}
+
+model OTPToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("otp_tokens")
+}
+
+enum UserRole {
+  CLIENT
+  FREELANCER
+}
+
+enum JobStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}

@@ -95,6 +95,25 @@ services:
     networks:
       - gigmatrix-net
 
+  # ─── Prometheus Monitoring ──────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gigmatrix-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=1d'
+      - '--storage.tsdb.retention.size=200MB'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    mem_limit: 256m
+    networks:
+      - gigmatrix-net
+
 # ─── Volumes ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
@@ -104,6 +123,8 @@ volumes:
   uploads_data:
     driver: local
   logs_data:
+    driver: local
+  prometheus_data:
     driver: local
 
 # ─── Networks ─────────────────────────────────────────────────────────────────

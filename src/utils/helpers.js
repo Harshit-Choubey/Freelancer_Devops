@@ -1,16 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-
-class AppError extends Error {
-  constructor(message, statusCode) {
-    super(message);
-    this.statusCode = statusCode;
-    this.isOperational = true;
-    
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
+const env = require('../config/env');
 
 const hashPassword = async (password) => {
   return await bcrypt.hash(password, 12);
@@ -21,13 +12,13 @@ const comparePassword = async (password, hashedPassword) => {
 };
 
 const generateToken = (payload) => {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN,
   });
 };
 
 const verifyToken = (token) => {
-  return jwt.verify(token, process.env.JWT_SECRET);
+  return jwt.verify(token, env.JWT_SECRET);
 };
 
 const generateOTP = () => {
@@ -39,7 +30,6 @@ const generateResetToken = () => {
 };
 
 module.exports = {
-  AppError,
   hashPassword,
   comparePassword,
   generateToken,

@@ -142,4 +142,13 @@ logger.logSystemEvent = (event, details = {}) => {
   logger.info(`System Event: ${JSON.stringify(logInfo)}`);
 };
 
+// Categorized Loggers for Production
+logger.auth = (msg, data = {}) => logger.info(`[AUTH] ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`);
+logger.socket = (msg, data = {}) => logger.info(`[SOCKET] ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`);
+logger.job = (msg, data = {}) => logger.info(`[JOB] ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`);
+logger.api = (msg, data = {}) => logger.info(`[API] ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`);
+logger.sysError = (msg, error) => logger.error(`[ERROR] ${msg} ${error ? error.message : ''}`);
+logger.upload = (msg, data = {}) => logger.info(`[UPLOAD] ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`);
+logger.system = (msg, data = {}) => logger.info(`[SYSTEM] ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`);
+
 module.exports = logger;

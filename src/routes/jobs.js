@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticate, authorize } = require('../middleware/auth');
-const { validate, jobSchema, applicationSchema } = require('../middleware/validation');
+const { validate } = require('../middleware/validation');
+const jobValidator = require('../validators/jobValidator');
 const {
   createJob,
   getAllJobs,
@@ -30,14 +31,14 @@ router.get('/my/jobs', authorize('CLIENT'), getMyJobs);
 router.get('/my/applications', authorize('FREELANCER'), getMyApplications);
 
 // Client-only routes
-router.post('/', authorize('CLIENT'), validate(jobSchema), createJob);
+router.post('/', authorize('CLIENT'), validate(jobValidator.create), createJob);
 router.get('/:id/applications', authorize('CLIENT'), getJobApplications);
-router.put('/applications/:id/status', authorize('CLIENT'), updateApplicationStatus);
-router.put('/:id', authorize('CLIENT'), updateJob);
+router.put('/applications/:id/status', authorize('CLIENT'), validate(jobValidator.updateApplicationStatus), updateApplicationStatus);
+router.put('/:id', authorize('CLIENT'), validate(jobValidator.update), updateJob);
 router.delete('/:id', authorize('CLIENT'), deleteJob);
 
 // Freelancer-only routes
-router.post('/:id/apply', authorize('FREELANCER'), validate(applicationSchema), applyToJob);
+router.post('/:id/apply', authorize('FREELANCER'), validate(jobValidator.apply), applyToJob);
 
 // Public route (must be last to avoid conflicts)
 router.get('/:id', getJobById);

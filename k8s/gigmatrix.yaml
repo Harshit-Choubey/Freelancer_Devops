@@ -1,0 +1,219 @@
+# ─── GigMatrix Kubernetes Manifests ───────────────────────────────────────────
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gigmatrix
+---
+# ─── ConfigMap ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gigmatrix-config
+  namespace: gigmatrix
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  FRONTEND_URL: "http://gigmatrix.example.com"
+  UPLOAD_DIR: "/app/uploads"
+  REDIS_ENABLED: "true"
+  REDIS_URL: "redis://gigmatrix-redis-svc:6379"
+---
+# ─── Secret (populate before deploying) ────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gigmatrix-secrets
+  namespace: gigmatrix
+type: Opaque
+data:
+  # Base64-encoded values (replace with actual secrets)
+  DATABASE_URL: ""      # echo -n 'mongodb://...' | base64
+  JWT_SECRET: ""        # echo -n 'your-secret' | base64
+  EMAIL_USER: ""
+  EMAIL_PASS: ""
+---
+# ─── Backend Deployment ───────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gigmatrix-api
+  namespace: gigmatrix
+  labels:
+    app: gigmatrix-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gigmatrix-api
+  template:
+    metadata:
+      labels:
+        app: gigmatrix-api
+    spec:
+      containers:
+        - name: api
+          image: gigmatrix/api:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: gigmatrix-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: gigmatrix-secrets
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: gigmatrix-secrets
+                  key: JWT_SECRET
+            - name: EMAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gigmatrix-secrets
+                  key: EMAIL_USER
+            - name: EMAIL_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: gigmatrix-secrets
+                  key: EMAIL_PASS
+          livenessProbe:
+            httpGet:
+              path: /monitoring/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /monitoring/ready
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: gigmatrix-uploads-pvc
+---
+# ─── Backend Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: gigmatrix-api-svc
+  namespace: gigmatrix
+spec:
+  selector:
+    app: gigmatrix-api
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+# ─── Uploads PersistentVolumeClaim ───────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gigmatrix-uploads-pvc
+  namespace: gigmatrix
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+# ─── Redis Deployment ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gigmatrix-redis
+  namespace: gigmatrix
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gigmatrix-redis
+  template:
+    metadata:
+      labels:
+        app: gigmatrix-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+# ─── Redis Service ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: gigmatrix-redis-svc
+  namespace: gigmatrix
+spec:
+  selector:
+    app: gigmatrix-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gigmatrix-ingress
+  namespace: gigmatrix
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: gigmatrix.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gigmatrix-api-svc
+                port:
+                  number: 3000
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: gigmatrix-api-svc
+                port:
+                  number: 3000
+          - path: /monitoring
+            pathType: Prefix
+            backend:
+              service:
+                name: gigmatrix-api-svc
+                port:
+                  number: 3000

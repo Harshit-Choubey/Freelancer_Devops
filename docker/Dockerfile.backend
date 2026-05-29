@@ -1,0 +1,54 @@
+# ─── GigMatrix Backend Dockerfile ─────────────────────────────────────────────
+# Multi-stage build for production optimization
+
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+# Install dependencies only
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Stage 2: Prisma Generate
+FROM node:20-alpine AS prisma
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Stage 3: Production Runtime
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 gigmatrix
+
+# Copy application files
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=prisma /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=prisma /app/node_modules/@prisma ./node_modules/@prisma
+COPY src ./src
+COPY prisma ./prisma
+COPY server.js ./
+COPY package.json ./
+
+# Create uploads directory with correct permissions
+RUN mkdir -p uploads && chown -R gigmatrix:nodejs uploads
+
+# Create logs directory
+RUN mkdir -p logs && chown -R gigmatrix:nodejs logs
+
+# Switch to non-root user
+USER gigmatrix
+
+EXPOSE 3000
+
+# Health check for Docker
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/monitoring/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
+
+CMD ["node", "server.js"]

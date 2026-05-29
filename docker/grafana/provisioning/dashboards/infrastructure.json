@@ -1,0 +1,18 @@
+{
+  "title": "GigMatrix Infrastructure",
+  "uid": "infra-01",
+  "panels": [
+    {
+      "title": "API Availability",
+      "type": "stat",
+      "targets": [{"expr": "up{job='api'}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "title": "Prometheus Health",
+      "type": "stat",
+      "targets": [{"expr": "up{job='prometheus'}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    }
+  ]
+}

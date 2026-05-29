@@ -131,6 +131,23 @@ services:
     networks:
       - gigmatrix-net
 
+  # ─── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: gigmatrix-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    mem_limit: 256m
+    networks:
+      - gigmatrix-net
+
 # ─── Volumes ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
@@ -142,6 +159,8 @@ volumes:
   logs_data:
     driver: local
   prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 # ─── Networks ─────────────────────────────────────────────────────────────────

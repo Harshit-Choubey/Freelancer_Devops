@@ -95,6 +95,59 @@ services:
     networks:
       - gigmatrix-net
 
+  # ─── Prometheus Monitoring ──────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gigmatrix-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=1d'
+      - '--storage.tsdb.retention.size=200MB'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    mem_limit: 256m
+    networks:
+      - gigmatrix-net
+
+  # ─── cAdvisor ───────────────────────────────────────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: gigmatrix-cadvisor
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    mem_limit: 128m
+    networks:
+      - gigmatrix-net
+
+  # ─── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: gigmatrix-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    mem_limit: 256m
+    networks:
+      - gigmatrix-net
+
 # ─── Volumes ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
@@ -104,6 +157,10 @@ volumes:
   uploads_data:
     driver: local
   logs_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 # ─── Networks ─────────────────────────────────────────────────────────────────

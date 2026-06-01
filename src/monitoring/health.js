@@ -79,19 +79,28 @@ router.get('/ready', async (req, res) => {
 // Can be scraped by Prometheus with a JSON exporter, or extended to text/plain format.
 router.get('/metrics', (req, res) => {
   const mem = process.memoryUsage();
-  res.json({
-    success: true,
-    service: 'gigmatrix-api',
-    timestamp: new Date().toISOString(),
-    metrics: {
-      uptime_seconds: Math.floor(process.uptime()),
-      memory_heap_used_bytes: mem.heapUsed,
-      memory_heap_total_bytes: mem.heapTotal,
-      memory_rss_bytes: mem.rss,
-      node_version: process.version,
-      environment: env.NODE_ENV,
-    },
-  });
+  const uptime = Math.floor(process.uptime());
+  
+  const metricsText = `
+# HELP node_uptime_seconds The uptime of the Node.js process in seconds.
+# TYPE node_uptime_seconds counter
+node_uptime_seconds ${uptime}
+
+# HELP node_memory_heap_used_bytes The heap memory used by the Node.js process in bytes.
+# TYPE node_memory_heap_used_bytes gauge
+node_memory_heap_used_bytes ${mem.heapUsed}
+
+# HELP node_memory_heap_total_bytes The heap memory total of the Node.js process in bytes.
+# TYPE node_memory_heap_total_bytes gauge
+node_memory_heap_total_bytes ${mem.heapTotal}
+
+# HELP node_memory_rss_bytes The Resident Set Size (RSS) memory of the Node.js process in bytes.
+# TYPE node_memory_rss_bytes gauge
+node_memory_rss_bytes ${mem.rss}
+`.trim() + '\n';
+
+  res.set('Content-Type', 'text/plain; version=0.0.4');
+  res.send(metricsText);
 });
 
 module.exports = router;

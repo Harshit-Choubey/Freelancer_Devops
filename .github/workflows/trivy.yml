@@ -1,0 +1,73 @@
+name: Trivy Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - feature/**
+  pull_request:
+
+jobs:
+  trivy-fs-scan:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          exit-code: 0          # Report-only mode (does not fail build)
+          format: sarif
+          output: trivy-fs-results.sarif
+
+      - name: Upload Trivy FS Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-filesystem
+
+  trivy-image-scan:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        image:
+          - context: .
+            dockerfile: docker/api/Dockerfile
+            tag: gigmatrix-api:latest
+          - context: ./nginx
+            dockerfile: ./nginx/Dockerfile
+            tag: gigmatrix-nginx:latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: docker build -f ${{ matrix.image.dockerfile }} -t ${{ matrix.image.tag }} ${{ matrix.image.context }}
+
+      - name: Run Trivy Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          image-ref: ${{ matrix.image.tag }}
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          exit-code: 0          # Report-only mode (does not fail build)
+          format: sarif
+          output: trivy-image-results.sarif
+
+      - name: Upload Trivy Image Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image-${{ matrix.image.tag }}

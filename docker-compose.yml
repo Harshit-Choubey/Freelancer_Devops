@@ -148,6 +148,30 @@ services:
     networks:
       - gigmatrix-net
 
+  # ─── Jenkins CI/CD ──────────────────────────────────────────────────────────
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: gigmatrix-jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8082:8080"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - JAVA_OPTS=-Xmx512m
+    mem_limit: 768m
+    cpus: "1.5"
+    networks:
+      - gigmatrix-net
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 # ─── Volumes ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
@@ -161,6 +185,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  jenkins_data:
     driver: local
 
 # ─── Networks ─────────────────────────────────────────────────────────────────
